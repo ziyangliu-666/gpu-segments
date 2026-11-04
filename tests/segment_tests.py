@@ -1,4 +1,4 @@
-"""Tests for warmd.segments that need no GPU: layout, protocol and broker policy.
+"""Tests for gpu_segments that need no GPU: layout, protocol and broker policy.
 
     python3 tests/segment_tests.py
 
@@ -13,8 +13,8 @@ import tempfile
 import threading
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "python"))
-from warmd import segments as S
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import gpu_segments as S
 
 
 def write_safetensors(path, tensors):

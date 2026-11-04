@@ -1,22 +1,32 @@
-# Segments
+# gpu-segments
 
-A segment is read-only device memory that outlives the processes that use it. A broker loads a safetensors file once, and each client maps it without a copy.
+Several processes that run the same model each load their own copy of the weights onto the GPU. A segment removes the copies. A broker loads a safetensors file into device memory once, and each process maps it read-only, without a copy.
 
-A client keeps its own CUDA context and uses NVIDIA's driver library, not warmd's. A fault stays in the client that caused it, and a store into a segment faults the writer.
+Each process keeps its own CUDA context and uses NVIDIA's unmodified driver library. A fault stays in the process that caused it, and a store into a segment faults the writer. The broker can run in another container or as another user.
+
+Measured on one A100 40 GB with vLLM and Qwen2.5-1.5B:
+
+| | private weights | one shared segment |
+|---|---|---|
+| device memory per isolated replica, under load | 4.12 GiB | 1.12 GiB |
+| isolated replicas that fit | 9 | about 32 |
+| device memory for 7 replicas serving one trace | 28.9 GiB | 10.6 GiB, same throughput |
+
+The data and the experiments are in [elastic-gpu-research](https://github.com/ziyangliu-666/elastic-gpu-research), Results 33 to 40.
 
 ## Running
 
 ```console
 $ make
-$ python3 -m warmd.segments --socket /run/warmd/seg.sock --file llama=/models/llama.safetensors
+$ python3 -m gpu_segments --socket /run/segments.sock --file llama=/models/llama.safetensors
 ```
 
 Only registered names can be opened. Clients cannot name a path.
 
 ```python
-from warmd.segments import Client
+from gpu_segments import Client
 
-c = Client("/run/warmd/seg.sock")
+c = Client("/run/segments.sock")
 weights = c.open("llama")             # {tensor name: read-only CUDA tensor}
 model.load_state_dict(weights, assign=True)
 ```
@@ -52,7 +62,7 @@ Mappings survive a broker crash: clients keep running on the memory they map. A 
 - The socket is mode 0660 by default. `--allow-uid` adds uids that may open segments.
 - Only the broker's uid and root may evict.
 - An fd received from the broker grants read access to the segment. Do not pass it on.
-- A segment works across containers. A gVisor sandbox needs a change in nvproxy: see `research/gvisor_issue_draft.md`.
+- A segment works across containers. A gVisor sandbox needs a change in nvproxy: [google/gvisor#16898](https://github.com/google/gvisor/pull/16898).
 
 ## Limits
 
@@ -60,4 +70,9 @@ Mappings survive a broker crash: clients keep running on the memory they map. A 
 - The broker refuses to evict a segment while any client maps it, because a later load would hold a second copy. `evict(force=True)` overrides this. A client that exits releases its mappings.
 - The first load copies the file into pinned host memory, which stays allocated for later reloads.
 
-Measurements and the experiments behind them are in `research/`.
+## Tests
+
+```console
+$ python3 tests/segment_tests.py        # no GPU needed
+$ make && python3 tests/segment_gpu_tests.py
+```

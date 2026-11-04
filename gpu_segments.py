@@ -1,4 +1,4 @@
-"""Segments: read-only device memory that outlives the processes that use it. See docs/segments.md.
+"""Segments: read-only device memory that outlives the processes that use it. See README.md.
 
 A broker owns one physical device allocation per segment and exports it as a file descriptor.
 A client imports the descriptor and maps it read-only at a virtual address that it keeps for its
@@ -9,7 +9,7 @@ Only names that the broker's operator registered can be opened. A client never p
 the broker reads the file, and a client can read back what the broker loaded.
 
 The layout and protocol code needs no GPU and no PyTorch. The device code needs libcuda and
-build/lib/libwarmd_segment.so. The client needs PyTorch.
+build/libgpu_segments.so. The client needs PyTorch.
 """
 import ctypes
 import json
@@ -116,17 +116,17 @@ def parse_files(items):
 # ---------------------------------------------------------------- device layer
 
 def _library():
-    path = os.environ.get("WARMD_SEGMENT_LIB")
+    path = os.environ.get("GPU_SEGMENTS_LIB")
     here = os.path.dirname(os.path.abspath(__file__))
-    candidates = [path] if path else [os.path.join(here, "libwarmd_segment.so"),
-                                       os.path.join(here, "..", "..", "build", "lib", "libwarmd_segment.so"),
-                                       "libwarmd_segment.so"]
+    candidates = [path] if path else [os.path.join(here, "libgpu_segments.so"),
+                                       os.path.join(here, "build", "libgpu_segments.so"),
+                                       "libgpu_segments.so"]
     for c in candidates:
         try:
             return ctypes.CDLL(c)
         except OSError:
             continue
-    raise SegmentError("libwarmd_segment.so not found: run make, or set WARMD_SEGMENT_LIB")
+    raise SegmentError("libgpu_segments.so not found: run make, or set GPU_SEGMENTS_LIB")
 
 
 def _check(result, what):
@@ -443,7 +443,7 @@ def tensor_at(address, shape, dtype, device_index=0):
     new = ctypes.pythonapi.PyCapsule_New
     new.restype, new.argtypes = ctypes.py_object, [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p]
     t = torch.from_dlpack(new(ctypes.addressof(m), b"dltensor", None))
-    t._warmd_keep = (m, dims)    # the struct must live as long as the tensor
+    t._segment_keep = (m, dims)    # the struct must live as long as the tensor
     return t
 
 
@@ -559,7 +559,7 @@ class Client:
 
 def main(argv=None):
     import argparse
-    ap = argparse.ArgumentParser(prog="python -m warmd.segments", description="Serve read-only device-memory segments.")
+    ap = argparse.ArgumentParser(prog="python -m gpu_segments", description="Serve read-only device-memory segments.")
     ap.add_argument("--socket", required=True)
     ap.add_argument("--file", action="append", default=[], metavar="NAME=PATH", help="register a safetensors file")
     ap.add_argument("--allow-uid", action="append", type=int, default=[], help="a uid that may open segments")

@@ -1,4 +1,4 @@
-// segment.c: thin wrapper over the public CUDA virtual memory management API, for warmd.segments.
+// segment.c: thin wrapper over the public CUDA virtual memory management API, for gpu_segments.py.
 //
 // Python calls these through ctypes with scalar arguments only, so no CUDA struct layout is
 // defined twice. Every function acts on the calling thread's current context and returns a

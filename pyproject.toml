@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gpu-segments"
+version = "0.1.0"
+description = "Read-only GPU weights that many processes map without a copy"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+
+[tool.setuptools]
+py-modules = ["gpu_segments"]

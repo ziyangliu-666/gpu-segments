@@ -1,4 +1,4 @@
-"""GPU tests for warmd.segments. Needs a CUDA GPU, PyTorch and `make`.
+"""GPU tests for gpu_segments. Needs a CUDA GPU, PyTorch and `make`.
 
     python3 tests/segment_gpu_tests.py
 
@@ -15,7 +15,7 @@ import time
 import unittest
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-sys.path.insert(0, os.path.join(ROOT, "python"))
+sys.path.insert(0, ROOT)
 
 
 def make_file(path):
@@ -26,7 +26,7 @@ def make_file(path):
 
 
 def client_sum(sock, q):
-    from warmd.segments import Client
+    from gpu_segments import Client
     c = Client(sock)
     t = c.open("m")
     a = float((t["w"] @ t["w"]).sum())
@@ -36,7 +36,7 @@ def client_sum(sock, q):
 
 
 def client_evict(sock, q):
-    from warmd.segments import Client
+    from gpu_segments import Client
     c = Client(sock)
     t = c.open("m")
     a = float((t["w"] @ t["w"]).sum())
@@ -48,7 +48,7 @@ def client_evict(sock, q):
 
 
 def _try_evict(c):
-    from warmd.segments import SegmentError
+    from gpu_segments import SegmentError
     try:
         return c.evict("m")
     except SegmentError:
@@ -56,7 +56,7 @@ def _try_evict(c):
 
 
 def client_survives_broker_restart(sock, q):
-    from warmd.segments import Client
+    from gpu_segments import Client
     c = Client(sock)
     t = c.open("m")
     a = float((t["w"] @ t["w"]).sum())
@@ -71,7 +71,7 @@ def client_survives_broker_restart(sock, q):
 
 def client_write(sock, q):
     import torch
-    from warmd.segments import Client
+    from gpu_segments import Client
     t = Client(sock).open("m")
     try:
         t["w"].fill_(9.0)
@@ -84,10 +84,10 @@ def client_write(sock, q):
 class SegmentGpuTests(unittest.TestCase):
     @classmethod
     def start_broker(cls):
-        env = dict(os.environ, PYTHONPATH=os.path.join(ROOT, "python"))
+        env = dict(os.environ, PYTHONPATH=ROOT)
         if os.path.exists(cls.sock):
             os.unlink(cls.sock)
-        cls.broker = subprocess.Popen([sys.executable, "-m", "warmd.segments", "--socket", cls.sock, "--file", f"m={cls.file}"], env=env)
+        cls.broker = subprocess.Popen([sys.executable, "-m", "gpu_segments", "--socket", cls.sock, "--file", f"m={cls.file}"], env=env)
         for _ in range(200):
             if os.path.exists(cls.sock):
                 break
