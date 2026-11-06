@@ -4,6 +4,8 @@ Several processes that run the same model each load their own copy of the weight
 
 Each process keeps its own CUDA context and uses NVIDIA's unmodified driver library. A fault stays in the process that caused it, and a store into a segment faults the writer. The broker can run in another container or as another user.
 
+![Isolated replicas with private weights and with one shared segment](docs/img/segments.svg)
+
 Measured on one A100 40 GB with vLLM and Qwen2.5-1.5B:
 
 | | private weights | one shared segment |
