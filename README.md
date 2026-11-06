@@ -2,9 +2,9 @@
 
 Several isolated processes that serve the same model on one GPU each load their own copy of the weights. gpu-segments loads the weights once. A broker process holds them in device memory, and each process maps that copy read-only.
 
-![Isolated replicas with private weights and with one shared segment](docs/img/segments.svg)
+![Device memory of one A100 40 GB: 9 replicas with private weights, about 32 with one shared segment](docs/img/memory.svg)
 
-The diagram shows measurements on one A100 40 GB with vLLM and Qwen2.5-1.5B, with replicas under load. Seven replicas that serve one trace use 28.9 GiB with private weights and 10.6 GiB with a shared segment, at the same throughput. The data and the experiments are in [elastic-gpu-research](https://github.com/ziyangliu-666/elastic-gpu-research), Results 33 to 40.
+The figure shows device memory, to scale, measured on one A100 40 GB with vLLM and Qwen2.5-1.5B, with replicas under load. Seven replicas that serve one trace use 28.9 GiB with private weights and 10.6 GiB with a shared segment, at the same throughput. The data and the experiments are in [elastic-gpu-research](https://github.com/ziyangliu-666/elastic-gpu-research), Results 33 to 40.
 
 Isolation stays as it is:
 
