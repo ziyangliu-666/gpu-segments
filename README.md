@@ -1,22 +1,20 @@
 # gpu-segments
 
-Several processes that run the same model each load their own copy of the weights onto the GPU. A segment removes the copies. A broker loads a safetensors file into device memory once, and each process maps it read-only, without a copy.
-
-Each process keeps its own CUDA context and uses NVIDIA's unmodified driver library. A fault stays in the process that caused it, and a store into a segment faults the writer. The broker can run in another container or as another user.
+Several isolated processes that serve the same model on one GPU each load their own copy of the weights. gpu-segments loads the weights once. A broker process holds them in device memory, and each process maps that copy read-only.
 
 ![Isolated replicas with private weights and with one shared segment](docs/img/segments.svg)
 
-Measured on one A100 40 GB with vLLM and Qwen2.5-1.5B:
+The diagram shows measurements on one A100 40 GB with vLLM and Qwen2.5-1.5B, with replicas under load. Seven replicas that serve one trace use 28.9 GiB with private weights and 10.6 GiB with a shared segment, at the same throughput. The data and the experiments are in [elastic-gpu-research](https://github.com/ziyangliu-666/elastic-gpu-research), Results 33 to 40.
 
-| | private weights | one shared segment |
-|---|---|---|
-| device memory per isolated replica, under load | 4.12 GiB | 1.12 GiB |
-| isolated replicas that fit | 9 | about 32 |
-| device memory for 7 replicas serving one trace | 28.9 GiB | 10.6 GiB, same throughput |
+Isolation stays as it is:
 
-The data and the experiments are in [elastic-gpu-research](https://github.com/ziyangliu-666/elastic-gpu-research), Results 33 to 40.
+- Each process keeps its own CUDA context and uses NVIDIA's unmodified driver library.
+- A fault stays in the process that caused it. A store into a segment faults the writer.
+- The broker can run in another container or as another user.
 
 ## Running
+
+Needs Linux, an NVIDIA driver, the CUDA headers (`CUDA=/usr/local/cuda` by default), gcc, and PyTorch.
 
 ```console
 $ make
@@ -53,7 +51,13 @@ To free the context's device memory too (about 500 MiB for a PyTorch process on 
 
 ## Accounting
 
-`Client.usage()` returns the device memory that the broker charges to each uid. A segment that several uids map is split equally between them. Tenants that share one copy of a model therefore each pay a fraction of it. A segment that is loaded but not mapped is charged to nobody, because the broker may evict it. The broker's uid and root see every uid; other clients see only their own. A scheduler can add this charge to the memory that a tenant's own contexts use.
+`Client.usage()` returns the device memory that the broker charges to each uid.
+
+- A segment that several uids map is split equally between them.
+- A segment that is loaded but not mapped is charged to nobody, because the broker may evict it.
+- The broker's uid and root see every uid. Other clients see only their own.
+
+A scheduler can add this charge to the memory that a tenant's own contexts use.
 
 ## Broker restart
 
